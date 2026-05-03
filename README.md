@@ -212,6 +212,12 @@ jobs:
 
 Si hubiera usado gh-pages -r flag, no haría falta hacer nada más, pero como hemos usado un comando de npm, tenemos que usar -- porque sino npm no lo reconoce como un argumento para el comando de deploy.
 
+Tambien en vez de poner la url del repositorio, podríamos usar la url genérica https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#context-availability, lo podría usar así:
+
+```bash
+npm run deploy -- -r ${{github.repositoryUrl}}
+```
+
 > NOTES:
 >
 > Paso "Use SSH key": crea id_rsa con la clave privada ssh en la carpeta ssh por defecto y añade permisos de escritura.
@@ -290,6 +296,8 @@ jobs:
 -       run: npm run deploy -- -r git@github.com:nasdan/to-rm-gh-auto.git
 +       uses: actions/deploy-pages@v4
 ```
+
+Para que sirve un artifact? Un artifact es un archivo o conjunto de archivos que se generan como resultado de un proceso de construcción o compilación. En el contexto de Github Actions, los artifacts se utilizan para almacenar y compartir los resultados de un trabajo o paso específico dentro de un workflow. Por ejemplo, en nuestro caso, después de construir la aplicación, los archivos estáticos generados en la carpeta `dist` se pueden subir como un artifact para que estén disponibles en pasos posteriores del workflow, como el despliegue.
 
 Sube los cambios:
 
