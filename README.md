@@ -125,7 +125,11 @@ git commit -m "add continuos deployment"
 git push
 ```
 
-Como vimos, el workflow falló. ¿Por qué? Porque cada vez que se ejecuta un job de Github, es una máquina nueva y limpia fuera del repositorio. Es decir, necesitamos permitir que el job haga git push. El mejor enfoque es crear una nueva clave ssh en local:
+Como vimos, el workflow falló. ¿Por qué? Porque cada vez que se ejecuta un job de Github, es una máquina nueva y limpia fuera del repositorio. Siempre los mayores problemas que vamos a tener en los despliegues automáticos es que el job no tiene permisos para hacer push al repositorio. Es decir, necesitamos permitir que el job haga git push. El mejor enfoque es crear una nueva clave ssh en local:
+
+¿Sabéis lo que es una clave ssh? Es un par de claves, una pública y otra privada, que se utilizan para autenticar a los usuarios sin necesidad de usar contraseñas. La clave pública se añade a la configuración del repositorio (en este caso, en Github) y la clave privada se mantiene segura en tu máquina local. Cuando el job de Github intenta hacer push, utiliza la clave privada para autenticarse con la clave pública que hemos añadido a Github, permitiendo así el acceso al repositorio.
+
+Aquí podéis ver la documentación oficial de Github sobre cómo crear una clave SSH: [Generating a new SSH key and adding it to the ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent)
 
 ```bash
 ssh-keygen -t ed25519 -C "cd-user@my-app.com"
@@ -136,6 +140,7 @@ ssh-keygen -t ed25519 -C "cd-user@my-app.com"
 > Enter passphrase (empty for no passphrase): `Pulse Enter for empty`
 > Enter same passphrase again: `Pulse Enter for empty`
 ```
+Se podría poner contraseña pero tened en cuenta que aqui no va a ver interacción humana, por lo que no se podría introducir la contraseña en el momento de hacer el push. Por eso, es recomendable dejar la passphrase vacía para que el proceso de despliegue pueda ejecutarse sin problemas.
 
 > NOTES:
 >
@@ -150,6 +155,8 @@ Copia el contenido de `id_rsa.pub` en la sección `Github Settings` > `Deploy ke
 ![01-public-ssh-key](./readme-resources/01-public-ssh-key.png)
 
 ![02-public-ssh-key](./readme-resources/02-public-ssh-key.png)
+
+Nombre: SSH-PUBLIC-KEY
 
 Elimina el archivo `id_rsa.pub`.
 
@@ -202,6 +209,8 @@ jobs:
 +       run: npm run deploy -- -r git@github.com:<your-repo>.git
 
 ```
+
+Si hubiera usado gh-pages -r flag, no haría falta hacer nada más, pero como hemos usado un comando de npm, tenemos que usar -- porque sino npm no lo reconoce como un argumento para el comando de deploy.
 
 > NOTES:
 >
