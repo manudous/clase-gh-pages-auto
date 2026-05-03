@@ -1,0 +1,281 @@
+# 02 Github actions
+
+En este ejemplo vamos a crear un servidor de producción usando Github pages y Github actions.
+
+Partiremos de `03-github-branch`.
+
+## Pasos para construirlo
+
+`npm install` para instalar los paquetes del ejemplo anterior:
+
+```bash
+npm install
+```
+
+En vez de crear manualmente la rama `gh-pages` y subir los archivos de producción, vamos a automatizar el proceso de despliegue cada vez que hagamos un push a la rama `main`. Vamos a ver dos formas de hacerlo, una usando el paquete `gh-pages` y otra usando la acción oficial de Github `deploy-pages`.
+
+Vamos a empezar con el enfoque de `gh-pages`.
+
+Para ello, vamos a usar una librería, que no es oficial de Github, pero es muy popular para desplegar en Github pages.
+
+Usaremos el mismo enfoque que en el ejemplo de `gh-pages`, pero utilizaremos [Github Actions](https://docs.github.com/en/free-pro-team@latest/actions) para despliegues automáticos.
+
+Crea un repositorio nuevo y sube los archivos,
+
+Nombre del repositorio: `clase-gh-pages-auto`
+
+```bash
+git init
+git remote add origin git@github.com...
+git add .
+git commit -m "initial commit"
+git push -u origin main
+```
+
+Instala [gh-pages](https://github.com/tschaub/gh-pages) como dependencia de desarrollo para desplegar en Github pages:
+
+```bash
+npm install gh-pages --save-dev
+```
+
+Añade el comando de despliegue:
+
+_./package.json_
+
+```diff
+  "scripts": {
+    "start": "run-p -l type-check:watch start:dev",
+    "start:dev": "vite --port 8080",
+    "prebuild": "npm run type-check",
+    "build": "vite build",
++   "prebuild:dev": "npm run prebuild",
++   "build:dev": "vite build --mode development",
++   "deploy": "gh-pages -d dist",
+    ...
+  },
+```
+
+Ejecuta la build de desarrollo y despliégala:
+
+```bash
+npm run build:dev
+npm run deploy
+```
+
+> NOTA: Podemos ejecutar el despliegue porque tenemos acceso al repositorio
+>
+> ya que hemos iniciado sesión en Github
+
+Añade el workflow de CD de GitHub actions:
+
+_./.github/workflows/cd.yml_
+
+```yml
+name: CD workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  cd:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy
+        run: npm run deploy
+```
+
+Añade un commit con los cambios:
+
+```bash
+git add .
+git commit -m "add continuos deployment"
+git push
+```
+
+Como vimos, el workflow falló. ¿Por qué? Porque cada vez que se ejecuta un job de Github, es una máquina nueva y limpia fuera del repositorio. Es decir, necesitamos permitir que el job haga git push. El mejor enfoque es crear una nueva clave ssh en local:
+
+```bash
+ssh-keygen -t ed25519 -C "cd-user@my-app.com"
+```
+
+```bash
+> Enter file in which to save the key: `./id_rsa`
+> Enter passphrase (empty for no passphrase): `Pulse Enter for empty`
+> Enter same passphrase again: `Pulse Enter for empty`
+```
+
+> NOTES:
+>
+> -t ed25519: El algoritmo Ed25519 es una opción moderna y segura para claves SSH, que proporciona mejor seguridad y rendimiento en comparación con algoritmos más antiguos como RSA.
+>
+> Introduce `./id_rsa` para guardar los archivos en el directorio actual
+>
+> Puedes dejar vacío el campo de passphrase.
+
+Copia el contenido de `id_rsa.pub` en la sección `Github Settings` > `Deploy keys`:
+
+![01-public-ssh-key](./readme-resources/01-public-ssh-key.png)
+
+![02-public-ssh-key](./readme-resources/02-public-ssh-key.png)
+
+Elimina el archivo `id_rsa.pub`.
+
+Copia el contenido de `id_rsa` en la sección `Github Settings` > `Secrets`:
+
+![03-private-ssh-key](./readme-resources/03-private-ssh-key.png)
+
+![04-private-ssh-key](./readme-resources/04-private-ssh-key.png)
+
+Elimina el archivo `id_rsa`.
+
+Ahora podemos usar esta clave privada ssh para hacer un commit/push en el job de Github:
+
+_./.github/workflows/cd.yml_
+
+```diff
+name: CD workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  cd:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
++     - name: Use SSH key
++       run: |
++         mkdir -p ~/.ssh/
++         echo "${{secrets.SSH_PRIVATE_KEY}}" > ~/.ssh/id_rsa
++         sudo chmod 600 ~/.ssh/id_rsa
+
++     - name: Git config
++       run: |
++         git config --global user.email "cd-user@my-app.com"
++         git config --global user.name "cd-user"
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy
+-       run: npm run deploy
++       run: npm run deploy -- -r git@github.com:<your-repo>.git
+
+```
+
+> NOTES:
+>
+> Paso "Use SSH key": crea id_rsa con la clave privada ssh en la carpeta ssh por defecto y añade permisos de escritura.
+>
+> Paso "Deploy": actualiza el comando de despliegue con la URL SSH del repositorio.
+>
+> [gh-pages -r flag](https://github.com/tschaub/gh-pages#optionsrepo)
+
+```bash
+git add .
+git commit -m "configure git cd-user permits"
+git push
+```
+
+![05-open-gh-pages-url](./readme-resources/05-open-gh-pages-url.png)
+
+## deploy-pages Github action
+
+Como alternativa al paquete `gh-pages`, podemos usar [deploy-pages Github action](https://github.com/actions/deploy-pages).
+
+Esta es una acción oficial de Github para desplegar sitios estáticos en Github pages y es más fácil de configurar que el paquete `gh-pages`.
+
+Primero, necesitamos cambiar la configuración de `gh-pages` en nuestro repositorio:
+
+![06-gh-pages-settings](./readme-resources/06-gh-pages-settings.png)
+
+Después podemos actualizar nuestro workflow así:
+
+_./.github/workflows/cd.yml_
+
+```diff
+name: CD workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  cd:
+    runs-on: ubuntu-latest
++   permissions:
++     pages: write
++     id-token: write
++   environment:
++     name: github-pages
++     url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+-     - name: Use SSH key
+-       run: |
+-         mkdir -p ~/.ssh/
+-         echo "${{secrets.SSH_PRIVATE_KEY}}" > ~/.ssh/id_rsa
+-         sudo chmod 600 ~/.ssh/id_rsa
+
+-     - name: Git config
+-       run: |
+-         git config --global user.email "cd-user@my-app.com"
+-         git config --global user.name "cd-user"
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
++     - name: Upload artifact
++       uses: actions/upload-pages-artifact@v4
++       with:
++         path: dist
+
+      - name: Deploy
++       id: deployment
+-       run: npm run deploy -- -r git@github.com:nasdan/to-rm-gh-auto.git
++       uses: actions/deploy-pages@v4
+```
+
+Sube los cambios:
+
+```bash
+git add .
+git commit -m "using deploy-pages Github action"
+git push
+```
+
+> Usando esta acción, no necesitamos instalar el paquete `gh-pages` ni crear una clave SSH.
+
+# Acerca de Basefactor + Lemoncode
+
+Somos un equipo innovador de expertos en Javascript, apasionados por convertir tus ideas en productos robustos.
+
+[Basefactor, consultancy by Lemoncode](http://www.basefactor.com) ofrece servicios de consultoría y coaching.
+
+[Lemoncode](http://lemoncode.net/services/en/#en-home) ofrece servicios de formación.
+
+Para la audiencia de LATAM/España ofrecemos un Máster Front End Online, más información: http://lemoncode.net/master-frontend
