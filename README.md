@@ -32,11 +32,17 @@ git commit -m "initial commit"
 git push -u origin main
 ```
 
+>> NOTA: Aquí asegurarse que todo los alumnos se hayan creado su propio repositorio y hayan subido los archivos.
+
 Instala [gh-pages](https://github.com/tschaub/gh-pages) como dependencia de desarrollo para desplegar en Github pages:
+
+poner en el buscador -d dist y así se localiza en el navegador donde sale en la documentación de gh-pages.
 
 ```bash
 npm install gh-pages --save-dev
 ```
+
+Primero lo vamos a probar aquí en local para asegurarnos que funciona correctamente y luego lo automatizaremos con Github actions.
 
 Añade el comando de despliegue:
 
@@ -59,12 +65,21 @@ Ejecuta la build de desarrollo y despliégala:
 
 ```bash
 npm run build:dev
+```
+
+Aquí mirar los assets dentro de dist y buscar lemoncode y decir que estamos todavía en desarrollo.
+
+```bashbash
 npm run deploy
 ```
 
 > NOTA: Podemos ejecutar el despliegue porque tenemos acceso al repositorio
 >
 > ya que hemos iniciado sesión en Github
+
+Aquí es donde nos vamos a crear nuestra carpeta de workflow de Github actions, pero que es un workflow? Es un proceso automatizado que se ejecuta en respuesta a eventos específicos en tu repositorio, como un push a una rama o la creación de un pull request. Los workflows se definen en archivos YAML dentro del directorio `.github/workflows` de tu repositorio. Estos archivos describen los pasos que se deben seguir para ejecutar tareas específicas, como construir tu proyecto, ejecutar pruebas o desplegar tu aplicación.
+
+¿Qué creeis que vamos a crear en nuestro workflow? Un proceso que se ejecute cada vez que hagamos un push a la rama `main` y que ejecute el comando de despliegue.
 
 Añade el workflow de CD de GitHub actions:
 
@@ -94,6 +109,13 @@ jobs:
       - name: Deploy
         run: npm run deploy
 ```
+
+**Explicación de cada paso:**
+
+- **`Checkout repository`**: Descarga el código del repositorio en la máquina virtual limpia donde corre el job. Sin este paso, la VM no tendría acceso al código fuente.
+- **`Install`**: Ejecuta `npm ci` para instalar las dependencias. A diferencia de `npm install`, `npm ci` es más estricto y reproducible: borra `node_modules` y lo instala todo desde cero respetando exactamente el `package-lock.json`.
+- **`Build`**: Compila la aplicación y genera los archivos estáticos de producción en la carpeta `dist`.
+- **`Deploy`**: Usa el paquete `gh-pages` para subir el contenido de `dist` a la rama `gh-pages` del repositorio, que es la que GitHub Pages sirve como sitio web.
 
 Añade un commit con los cambios:
 
