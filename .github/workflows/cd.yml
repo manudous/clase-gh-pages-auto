@@ -30,4 +30,5 @@ jobs:
           path: dist
 
       - name: Deploy
-        run: npm run deploy -- -r git@github.com:manudous/clase-gh-pages-auto.git
+        id: deployment
+        uses: actions/deploy-pages@v4
